@@ -314,6 +314,19 @@ export async function addArticleSource(article: Article): Promise<boolean> {
 }
 
 /**
+ * Ensure commentBait ends with source attribution.
+ * If Gemini didn't include it, append it programmatically.
+ */
+function ensureSourceAttribution(commentBait: string, sourceName: string): string {
+  if (!commentBait) return `Source: ${sourceName}`;
+  // Check if it already ends with a Source: line
+  if (/source:\s*.+/i.test(commentBait)) return commentBait;
+  return `${commentBait.trimEnd()}
+
+Source: ${sourceName}`;
+}
+
+/**
  * Parse AI response JSON into post fields.
  */
 function parseAiResponse(
@@ -343,7 +356,7 @@ function parseAiResponse(
       emojiTitle: parsed.emojiTitle,
       emojiTitleVi: parsed.emojiTitleVi ?? '',
       facebookText: parsed.facebookText,
-      commentBait: parsed.commentBait,
+      commentBait: ensureSourceAttribution(parsed.commentBait, article.source),
       nb2Prompt: buildNb2Prompt(article, parsed.emojiTitle),
       state: parsed.state ?? 'Unknown',
     };
@@ -387,7 +400,7 @@ function parseBatchAiResponse(
         emojiTitle: item.emojiTitle,
         emojiTitleVi: item.emojiTitleVi ?? '',
         facebookText: item.facebookText,
-        commentBait: item.commentBait,
+        commentBait: ensureSourceAttribution(item.commentBait, article.source),
         nb2Prompt: buildNb2Prompt(article, item.emojiTitle),
         state: item.state ?? 'Unknown',
       };

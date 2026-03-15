@@ -44,9 +44,60 @@ function CopyButton({ text, ariaLabel }: { text: string; ariaLabel?: string }) {
   );
 }
 
+function CollapsibleSection({
+  label,
+  text,
+  defaultOpen = false,
+}: {
+  label: string;
+  text: string;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div
+      className="rounded-lg overflow-hidden"
+      style={{ backgroundColor: '#111', border: '1px solid #2a2a2a' }}
+    >
+      <div
+        className="flex items-center justify-between px-3 py-2 cursor-pointer select-none"
+        onClick={() => setOpen(!open)}
+      >
+        <span
+          className="text-xs font-semibold tracking-widest uppercase"
+          style={{ color: '#f0e523' }}
+        >
+          {open ? '▾' : '▸'} {label}
+        </span>
+        <CopyButton text={text} ariaLabel={`Copy ${label.toLowerCase()}`} />
+      </div>
+      {open && (
+        <div className="px-3 pb-3">
+          {label === 'NB2 Image Prompt' ? (
+            <pre
+              className="text-xs text-gray-300 whitespace-pre-wrap break-words font-mono select-all"
+              style={{ lineHeight: '1.5' }}
+            >
+              {text}
+            </pre>
+          ) : (
+            <p
+              className="text-sm text-gray-200 whitespace-pre-wrap break-words select-all"
+              style={{ lineHeight: '1.6' }}
+            >
+              {text}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function PostCard({ post }: PostCardProps) {
-  const { article, facebookText, nb2Prompt, emojiTitle } = post;
-  const { title, pubDate, source, imageUrl, portraitUrl } = article;
+  const { article, facebookText, nb2Prompt, emojiTitle, commentBait } = post;
+  const { title, pubDate, source, imageUrl, portraitUrl, url } = article;
 
   const [portraitVisible, setPortraitVisible] = useState(true);
 
@@ -87,16 +138,31 @@ export default function PostCard({ post }: PostCardProps) {
           className="absolute inset-0"
           style={{ backgroundColor: 'rgba(0, 0, 0, 0.55)' }}
         />
-        {/* Source + date */}
-        <div className="absolute bottom-3 left-4 text-sm text-white" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
-          <span className="font-semibold">{source}</span>
-          <span className="mx-1 opacity-70">•</span>
-          <span className="opacity-80">{formattedDate}</span>
+        {/* Source + date + link */}
+        <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between text-sm text-white" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
+          <div>
+            <span className="font-semibold">{source}</span>
+            <span className="mx-1 opacity-70">•</span>
+            <span className="opacity-80">{formattedDate}</span>
+          </div>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs px-2 py-1 rounded transition-colors duration-150"
+            style={{
+              backgroundColor: 'rgba(240,229,35,0.15)',
+              color: '#f0e523',
+              border: '1px solid rgba(240,229,35,0.3)',
+            }}
+          >
+            Source ↗
+          </a>
         </div>
       </div>
 
       {/* Card body */}
-      <div className="p-4 flex flex-col gap-4">
+      <div className="p-4 flex flex-col gap-3">
         {/* Portrait + title row */}
         <div className="flex items-start gap-3">
           {portraitUrl && portraitVisible && (
@@ -124,49 +190,15 @@ export default function PostCard({ post }: PostCardProps) {
           </h2>
         </div>
 
-        {/* NB2 Prompt section */}
-        <div
-          className="rounded-lg p-3"
-          style={{ backgroundColor: '#111', border: '1px solid #2a2a2a' }}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span
-              className="text-xs font-semibold tracking-widest uppercase"
-              style={{ color: '#f0e523' }}
-            >
-              NB2 Image Prompt
-            </span>
-            <CopyButton text={nb2Prompt} ariaLabel="Copy NB2 prompt" />
-          </div>
-          <pre
-            className="text-xs text-gray-300 whitespace-pre-wrap break-words font-mono select-all"
-            style={{ lineHeight: '1.5' }}
-          >
-            {nb2Prompt}
-          </pre>
-        </div>
+        {/* Original article title (smaller, for reference) */}
+        <p className="text-xs opacity-50 text-gray-400 truncate" title={title}>
+          Original: {title}
+        </p>
 
-        {/* Facebook Draft section */}
-        <div
-          className="rounded-lg p-3"
-          style={{ backgroundColor: '#111', border: '1px solid #2a2a2a' }}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span
-              className="text-xs font-semibold tracking-widest uppercase"
-              style={{ color: '#f0e523' }}
-            >
-              Facebook Draft
-            </span>
-            <CopyButton text={facebookText} ariaLabel="Copy Facebook draft" />
-          </div>
-          <p
-            className="text-sm text-gray-200 whitespace-pre-wrap break-words select-all"
-            style={{ lineHeight: '1.6' }}
-          >
-            {facebookText}
-          </p>
-        </div>
+        {/* Collapsible sections */}
+        <CollapsibleSection label="Facebook Draft" text={facebookText} defaultOpen={true} />
+        <CollapsibleSection label="Comment Bait" text={commentBait} />
+        <CollapsibleSection label="NB2 Image Prompt" text={nb2Prompt} />
       </div>
     </div>
   );

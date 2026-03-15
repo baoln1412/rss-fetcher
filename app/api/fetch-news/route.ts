@@ -14,24 +14,70 @@ const parser = new Parser({
   },
 });
 
-const FEEDS: { name: string; url: string }[] = [
-  { name: 'NYT US', url: 'https://rss.nytimes.com/services/xml/rss/nyt/US.xml' },
-  { name: 'CNN Crime', url: 'http://rss.cnn.com/rss/cnn_crime.rss' },
-  { name: 'Fox News', url: 'https://feeds.foxnews.com/foxnews/latest' },
-  { name: 'USA Today', url: 'https://www.usatoday.com/rss/news.rss' },
-  { name: 'NBC News', url: 'https://feeds.nbcnews.com/nbcnews/public/news' },
-  { name: 'ABC News', url: 'https://abcnews.go.com/abcnews/usheadlines' },
-  { name: 'CBS News', url: 'https://www.cbsnews.com/latest/rss/us' },
-  { name: 'Washington Post', url: 'https://feeds.washingtonpost.com/rss/national' },
-  { name: 'AP News', url: 'https://apnews.com/rss' },
-  { name: 'Law & Crime', url: 'https://lawandcrime.com/feed/' },
-  { name: 'Court TV', url: 'https://www.courttv.com/feed/' },
-  { name: 'Crime Online', url: 'https://www.crimeonline.com/feed/' },
-  { name: 'NBC US News', url: 'https://www.nbcnews.com/rss/us-news' },
-  { name: 'People Magazine', url: 'https://people.com/feed/' },
-  { name: 'Courthouse News', url: 'https://www.courthousenews.com/feed/' },
+// ── Feed registry (20+ sources) ─────────────────────────────────────────
+interface FeedEntry {
+  name: string;
+  url: string;
+  crimeSpecific: boolean; // true = every article is crime-related
+}
+
+const FEEDS: FeedEntry[] = [
+  // ── Mainstream US outlets (general — need keyword filtering) ──
+  { name: 'NYT US',            url: 'https://rss.nytimes.com/services/xml/rss/nyt/US.xml',      crimeSpecific: false },
+  { name: 'Fox News Crime',    url: 'https://moxie.foxnews.com/google-publisher/crime.xml',      crimeSpecific: true  },
+  { name: 'USA Today',         url: 'https://www.usatoday.com/rss/news.rss',                     crimeSpecific: false },
+  { name: 'ABC News US',       url: 'https://abcnews.go.com/abcnews/usheadlines',                crimeSpecific: false },
+  { name: 'Washington Post',   url: 'https://feeds.washingtonpost.com/rss/national',              crimeSpecific: false },
+  { name: 'AP News',           url: 'https://apnews.com/rss',                                    crimeSpecific: false },
+
+  // ── Mainstream US outlets (crime-specific endpoints) ──
+  { name: 'CNN Crime',         url: 'http://rss.cnn.com/rss/cnn_crime.rss',                      crimeSpecific: true  },
+  { name: 'NBC Crime Courts',  url: 'https://feeds.nbcnews.com/nbcnews/public/news',             crimeSpecific: true  },
+  { name: 'CBS Crime',         url: 'https://www.cbsnews.com/latest/rss/us',                      crimeSpecific: true  },
+
+  // ── Specialist crime & court outlets ──
+  { name: 'Law & Crime',       url: 'https://lawandcrime.com/feed/',                              crimeSpecific: true  },
+  { name: 'Court TV',          url: 'https://www.courttv.com/feed/',                              crimeSpecific: true  },
+  { name: 'Crime Online',      url: 'https://www.crimeonline.com/feed/',                          crimeSpecific: true  },
+  { name: 'Oxygen Crime',      url: 'https://www.oxygen.com/crime-news/feed',                     crimeSpecific: true  },
+  { name: 'People Crime',      url: 'https://people.com/crime-news/feed/',                        crimeSpecific: true  },
+  { name: 'Courthouse News',   url: 'https://www.courthousenews.com/feed/',                       crimeSpecific: true  },
+
+  // ── Additional mainstream (general — need keyword filtering) ──
+  { name: 'NBC US News',       url: 'https://www.nbcnews.com/rss/us-news',                       crimeSpecific: false },
+  { name: 'People Magazine',   url: 'https://people.com/feed/',                                   crimeSpecific: false },
+
+  // ── Extra crime-adjacent sources ──
+  { name: 'Fox News Latest',   url: 'https://feeds.foxnews.com/foxnews/latest',                   crimeSpecific: false },
+  { name: 'USA Today Crime',   url: 'https://www.usatoday.com/rss/news.rss',                      crimeSpecific: false },
+  { name: 'CBS US',            url: 'https://www.cbsnews.com/latest/rss/main',                     crimeSpecific: false },
+  { name: 'NBC Top Stories',   url: 'https://feeds.nbcnews.com/nbcnews/public/news',              crimeSpecific: false },
 ];
 
+// ── Crime keyword filter ─────────────────────────────────────────────────
+const CRIME_KEYWORDS: string[] = [
+  'murder', 'kill', 'killed', 'killing', 'dead', 'death', 'homicide', 'manslaughter',
+  'arrest', 'arrested', 'charged', 'suspect', 'shooting', 'shot', 'gunfire',
+  'stabbing', 'stabbed', 'assault', 'robbery', 'kidnap', 'kidnapped', 'abduct',
+  'missing', 'court', 'trial', 'verdict', 'sentenced', 'convicted', 'indicted',
+  'arson', 'fentanyl', 'overdose', 'carjacking', 'burglary', 'rape',
+  'crime', 'criminal', 'felony', 'felon', 'weapon', 'firearm', 'victim',
+  'prosecutor', 'detective', 'investigation', 'homicide', 'manslaughter',
+  'body found', 'crime scene', 'police', 'fatal',
+];
+
+const CRIME_REGEX = new RegExp(
+  CRIME_KEYWORDS.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'),
+  'i'
+);
+
+function isCrimeArticle(article: Article, isCrimeSpecificFeed: boolean): boolean {
+  if (isCrimeSpecificFeed) return true;
+  const text = `${article.title} ${article.description}`;
+  return CRIME_REGEX.test(text);
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const MIN_ARTICLES = 20;
 const MAX_ARTICLES = 25;
@@ -57,10 +103,8 @@ function extractImgSrcs(html: string | undefined): string[] {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function extractImages(item: any): { imageUrl?: string; portraitUrl?: string } {
-  // 1. Try enclosure
   const enclosureUrl: string | undefined = item.enclosure?.url;
 
-  // 2. Try media:content (may be an array due to keepArray: true)
   let mediaContentUrl: string | undefined;
   const mediaContent = item['media:content'];
   if (Array.isArray(mediaContent) && mediaContent.length > 0) {
@@ -69,16 +113,13 @@ function extractImages(item: any): { imageUrl?: string; portraitUrl?: string } {
     mediaContentUrl = mediaContent?.$?.url ?? mediaContent?.url;
   }
 
-  // 3. Parse <img> tags from content fields
   const htmlContent: string | undefined =
     item['content:encoded'] ?? item.content ?? undefined;
   const imgSrcs = extractImgSrcs(htmlContent);
 
-  // Determine imageUrl: prefer enclosure, then media:content, then first img tag
   const imageUrl: string | undefined =
     enclosureUrl ?? mediaContentUrl ?? imgSrcs[0] ?? undefined;
 
-  // Determine portraitUrl: a second distinct image from img tags
   let portraitUrl: string | undefined;
   for (const src of imgSrcs) {
     if (src !== imageUrl) {
@@ -91,24 +132,22 @@ function extractImages(item: any): { imageUrl?: string; portraitUrl?: string } {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function fetchFeed(feed: { name: string; url: string }, filterByDate: boolean = true): Promise<Article[]> {
+async function fetchFeed(feed: FeedEntry, filterByDate: boolean = true): Promise<{ articles: Article[]; crimeSpecific: boolean }> {
   const feedData = await Promise.race([
     parser.parseURL(feed.url),
-    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Feed timeout')), 5000)),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Feed timeout')), 8000)),
   ]);
   const now = Date.now();
   const articles: Article[] = [];
 
   for (const item of feedData.items ?? []) {
     const title = (item.title ?? '').trim();
-    // Skip articles without a title
     if (!title) continue;
 
     const pubDateStr: string =
       item.pubDate ?? item.isoDate ?? new Date(0).toISOString();
     const pubDateMs = new Date(pubDateStr).getTime();
 
-    // Filter by 7-day window if requested
     if (filterByDate) {
       const isRecent = now - pubDateMs <= SEVEN_DAYS_MS;
       if (!isRecent) continue;
@@ -130,37 +169,46 @@ async function fetchFeed(feed: { name: string; url: string }, filterByDate: bool
     });
   }
 
-  return articles;
+  return { articles, crimeSpecific: feed.crimeSpecific };
 }
 
 export async function GET(): Promise<NextResponse> {
-  // Fetch all feeds concurrently with date filtering, tolerating individual failures
+  // Fetch all feeds concurrently, tolerating individual failures
   const results = await Promise.allSettled(
     FEEDS.map((feed) =>
       fetchFeed(feed, true).catch((err) => {
         console.error(`[fetch-news] Failed to fetch feed "${feed.name}":`, err);
-        return [] as Article[];
+        return { articles: [] as Article[], crimeSpecific: feed.crimeSpecific };
       })
     )
   );
 
-  let allArticles: Article[] = results.flatMap((result) =>
-    result.status === 'fulfilled' ? result.value : []
-  );
+  let allArticles: Article[] = [];
+  for (const result of results) {
+    if (result.status !== 'fulfilled') continue;
+    const { articles, crimeSpecific } = result.value;
+    // Apply crime keyword filter for non-crime-specific feeds
+    const filtered = articles.filter((a) => isCrimeArticle(a, crimeSpecific));
+    allArticles.push(...filtered);
+  }
 
-  // If less than MIN_ARTICLES after 7-day filter, fetch all items again without date restriction
+  // If less than MIN_ARTICLES after 7-day filter, retry without date restriction
   if (allArticles.length < MIN_ARTICLES) {
     const unfilteredResults = await Promise.allSettled(
       FEEDS.map((feed) =>
         fetchFeed(feed, false).catch((err) => {
           console.error(`[fetch-news] Failed to fetch feed (unfiltered) "${feed.name}":`, err);
-          return [] as Article[];
+          return { articles: [] as Article[], crimeSpecific: feed.crimeSpecific };
         })
       )
     );
-    allArticles = unfilteredResults.flatMap((result) =>
-      result.status === 'fulfilled' ? result.value : []
-    );
+    allArticles = [];
+    for (const result of unfilteredResults) {
+      if (result.status !== 'fulfilled') continue;
+      const { articles, crimeSpecific } = result.value;
+      const filtered = articles.filter((a) => isCrimeArticle(a, crimeSpecific));
+      allArticles.push(...filtered);
+    }
   }
 
   // Deduplicate by URL
@@ -179,5 +227,6 @@ export async function GET(): Promise<NextResponse> {
   // Return top MAX_ARTICLES
   const articles = deduplicated.slice(0, MAX_ARTICLES);
 
+  console.log(`[fetch-news] Returning ${articles.length} crime articles from ${FEEDS.length} feeds`);
   return NextResponse.json({ articles });
 }

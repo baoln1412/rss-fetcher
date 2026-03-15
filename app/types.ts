@@ -16,5 +16,6 @@ export interface PostDraft {
   article: ArticleWithSummary;
   facebookText: string;  // full Facebook post draft
   nb2Prompt: string;     // Nano Banana 2 image generation prompt
-  emojiTitle: string;    // <=16 word title with emoji
+  emojiTitle: string;    // <=16 word title with emoji at end
+  commentBait: string;   // seed comment — 3 analytical paragraphs to drive engagement
 }

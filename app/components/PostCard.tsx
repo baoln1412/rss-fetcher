@@ -97,6 +97,190 @@ function CollapsibleSection({
   );
 }
 
+// ── Editable Facebook Draft component ─────────────────────────────────────
+
+function EditableFacebookDraft({
+  text,
+  articleUrl,
+  onUpdate,
+}: {
+  text: string;
+  articleUrl: string;
+  onUpdate: (newText: string) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(text);
+  const [displayText, setDisplayText] = useState(text);
+  const [saving, setSaving] = useState(false);
+  const [showReprompt, setShowReprompt] = useState(false);
+  const [repromptText, setRepromptText] = useState('');
+  const [regenerating, setRegenerating] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/posts/update-draft', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ articleUrl, facebookText: editText }),
+      });
+      if (!res.ok) throw new Error('Save failed');
+      setDisplayText(editText);
+      onUpdate(editText);
+      setIsEditing(false);
+    } catch (err) {
+      console.error('Failed to save draft:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRegenerate = async () => {
+    setRegenerating(true);
+    try {
+      const res = await fetch('/api/posts/regenerate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ articleUrl, userPrompt: repromptText || undefined }),
+      });
+      if (!res.ok) throw new Error('Regenerate failed');
+      const data = await res.json();
+      if (data.facebookText) {
+        setDisplayText(data.facebookText);
+        setEditText(data.facebookText);
+        onUpdate(data.facebookText);
+        setShowReprompt(false);
+        setRepromptText('');
+      }
+    } catch (err) {
+      console.error('Failed to regenerate:', err);
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  return (
+    <div
+      className="rounded-lg overflow-hidden"
+      style={{ backgroundColor: '#111', border: '1px solid #2a2a2a' }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2">
+        <span
+          className="text-xs font-semibold tracking-widest uppercase cursor-pointer select-none"
+          style={{ color: '#f0e523' }}
+          onClick={() => setOpen(!open)}
+        >
+          {open ? '▾' : '▸'} Facebook Draft
+        </span>
+        <div className="flex items-center gap-1">
+          {!isEditing && (
+            <>
+              <button
+                onClick={() => { setEditText(displayText); setIsEditing(true); }}
+                className="text-xs px-2 py-1 rounded border transition-colors duration-150"
+                style={{ borderColor: '#3b82f6', color: '#3b82f6', backgroundColor: 'transparent', cursor: 'pointer' }}
+              >
+                ✏️ Edit
+              </button>
+              <button
+                onClick={() => setShowReprompt(!showReprompt)}
+                className="text-xs px-2 py-1 rounded border transition-colors duration-150"
+                style={{ borderColor: '#a855f7', color: '#a855f7', backgroundColor: 'transparent', cursor: 'pointer' }}
+              >
+                🤖 AI
+              </button>
+            </>
+          )}
+          <CopyButton text={displayText} ariaLabel="Copy facebook draft" />
+        </div>
+      </div>
+
+      {/* Re-prompt bar */}
+      {showReprompt && !isEditing && open && (
+        <div className="px-3 pb-2 flex gap-2">
+          <input
+            type="text"
+            placeholder="Instructions for AI (optional)..."
+            value={repromptText}
+            onChange={(e) => setRepromptText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter' && !regenerating) handleRegenerate(); }}
+            className="flex-1 text-xs px-2 py-1.5 rounded"
+            style={{ backgroundColor: '#1a1a2e', border: '1px solid #a855f7', color: '#e2e8f0' }}
+          />
+          <button
+            onClick={handleRegenerate}
+            disabled={regenerating}
+            className="text-xs px-3 py-1.5 rounded font-semibold transition-opacity"
+            style={{
+              backgroundColor: '#a855f7',
+              color: '#fff',
+              opacity: regenerating ? 0.6 : 1,
+              cursor: regenerating ? 'wait' : 'pointer',
+            }}
+          >
+            {regenerating ? '⏳ Generating...' : '🔄 Regenerate'}
+          </button>
+        </div>
+      )}
+
+      {/* Content */}
+      {open && (
+        <div className="px-3 pb-3">
+          {isEditing ? (
+            <>
+              <textarea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                className="w-full text-sm text-gray-200 rounded p-2"
+                style={{
+                  backgroundColor: '#1a1a2e',
+                  border: '1px solid #3b82f6',
+                  lineHeight: '1.6',
+                  minHeight: '300px',
+                  resize: 'vertical',
+                  color: '#e2e8f0',
+                }}
+                rows={15}
+              />
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="text-xs px-3 py-1.5 rounded font-semibold"
+                  style={{
+                    backgroundColor: '#22c55e',
+                    color: '#000',
+                    opacity: saving ? 0.6 : 1,
+                    cursor: saving ? 'wait' : 'pointer',
+                  }}
+                >
+                  {saving ? 'Saving...' : '💾 Save'}
+                </button>
+                <button
+                  onClick={() => { setIsEditing(false); setEditText(displayText); }}
+                  className="text-xs px-3 py-1.5 rounded font-semibold"
+                  style={{ backgroundColor: '#333', color: '#ccc', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            <p
+              className="text-sm text-gray-200 whitespace-pre-wrap break-words select-all"
+              style={{ lineHeight: '1.6' }}
+            >
+              {displayText}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Render **bold** markdown in title strings
 function renderBoldMarkdown(text: string) {
   const parts = text.split(/(\*\*[^*]+\*\*)/);
@@ -272,8 +456,15 @@ export default function PostCard({ post, isNew, onToggleDone }: PostCardProps) {
           Original: {title}
         </p>
 
-        {/* Collapsible sections */}
-        <CollapsibleSection label="Facebook Draft" text={facebookText} defaultOpen={true} />
+        {/* Facebook Draft — Editable + AI Re-prompt */}
+        <EditableFacebookDraft
+          text={facebookText}
+          articleUrl={url}
+          onUpdate={(newText) => {
+            // Update the local post object so UI reflects changes immediately
+            post.facebookText = newText;
+          }}
+        />
         <CollapsibleSection label="Comment Bait" text={commentBait} />
         <CollapsibleSection label="NB2 Image Prompt" text={nb2Prompt} />
 

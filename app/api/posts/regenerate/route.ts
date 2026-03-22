@@ -82,17 +82,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'AI returned empty facebookText' }, { status: 500 });
     }
 
-    // Save to DB
-    const { error: updateErr } = await supabase
-      .from('crime_posts')
-      .update({ facebook_text: parsed.facebookText })
-      .eq('article_url', articleUrl);
-
-    if (updateErr) {
-      console.error('[regenerate] DB update error:', updateErr);
-      return NextResponse.json({ error: updateErr.message }, { status: 500 });
-    }
-
+    // Return preview only — user must accept before saving
     return NextResponse.json({ success: true, facebookText: parsed.facebookText });
   } catch (err) {
     console.error('[regenerate] Error:', err);

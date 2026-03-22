@@ -136,6 +136,8 @@ function EditableFacebookDraft({
     }
   };
 
+  const [previewText, setPreviewText] = useState<string | null>(null);
+
   const handleRegenerate = async () => {
     setRegenerating(true);
     try {
@@ -147,10 +149,7 @@ function EditableFacebookDraft({
       if (!res.ok) throw new Error('Regenerate failed');
       const data = await res.json();
       if (data.facebookText) {
-        setDisplayText(data.facebookText);
-        setEditText(data.facebookText);
-        onUpdate(data.facebookText);
-        setShowReprompt(false);
+        setPreviewText(data.facebookText);
         setRepromptText('');
       }
     } catch (err) {
@@ -158,6 +157,32 @@ function EditableFacebookDraft({
     } finally {
       setRegenerating(false);
     }
+  };
+
+  const handleAcceptPreview = async () => {
+    if (!previewText) return;
+    setSaving(true);
+    try {
+      const res = await fetch('/api/posts/update-draft', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ articleUrl, facebookText: previewText }),
+      });
+      if (!res.ok) throw new Error('Save failed');
+      setDisplayText(previewText);
+      setEditText(previewText);
+      onUpdate(previewText);
+      setPreviewText(null);
+      setShowReprompt(false);
+    } catch (err) {
+      console.error('Failed to accept preview:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDiscardPreview = () => {
+    setPreviewText(null);
   };
 
   return (
@@ -265,6 +290,68 @@ function EditableFacebookDraft({
                 >
                   Cancel
                 </button>
+              </div>
+            </>
+          ) : previewText ? (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: 'rgba(168,85,247,0.2)', color: '#a855f7' }}>
+                  🤖 AI Preview
+                </span>
+              </div>
+              <p
+                className="text-sm text-gray-200 whitespace-pre-wrap break-words"
+                style={{ lineHeight: '1.6', borderLeft: '3px solid #a855f7', paddingLeft: '12px' }}
+              >
+                {previewText}
+              </p>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={handleAcceptPreview}
+                  disabled={saving}
+                  className="text-xs px-3 py-1.5 rounded font-semibold"
+                  style={{
+                    backgroundColor: '#22c55e',
+                    color: '#000',
+                    opacity: saving ? 0.6 : 1,
+                    cursor: saving ? 'wait' : 'pointer',
+                  }}
+                >
+                  {saving ? 'Saving...' : '✅ Accept'}
+                </button>
+                <button
+                  onClick={handleRegenerate}
+                  disabled={regenerating}
+                  className="text-xs px-3 py-1.5 rounded font-semibold"
+                  style={{
+                    backgroundColor: 'rgba(168,85,247,0.15)',
+                    color: '#a855f7',
+                    border: '1px solid rgba(168,85,247,0.3)',
+                    opacity: regenerating ? 0.6 : 1,
+                    cursor: regenerating ? 'wait' : 'pointer',
+                  }}
+                >
+                  {regenerating ? '⏳ Generating...' : '🔄 Re-prompt'}
+                </button>
+                <button
+                  onClick={handleDiscardPreview}
+                  className="text-xs px-3 py-1.5 rounded font-semibold"
+                  style={{ backgroundColor: '#333', color: '#ccc', cursor: 'pointer' }}
+                >
+                  ✕ Discard
+                </button>
+              </div>
+              {/* Re-prompt input (visible in preview mode) */}
+              <div className="mt-2 flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Additional instructions for AI..."
+                  value={repromptText}
+                  onChange={(e) => setRepromptText(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !regenerating) handleRegenerate(); }}
+                  className="flex-1 text-xs px-2 py-1.5 rounded"
+                  style={{ backgroundColor: '#1a1a2e', border: '1px solid #a855f7', color: '#e2e8f0' }}
+                />
               </div>
             </>
           ) : (

@@ -57,16 +57,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         : 'The user wants a fresh rewrite. Make it more engaging, dramatic, and detailed.',
       '',
       '=== REQUIREMENTS ===',
-      '**CRITICAL: The new facebookText MUST be 1700-2000 words long.**',
-      'Keep the same 5-section structure: Hook → Chilling Details → Narrative → Reporter\'s Perspective → Legal Status.',
-      'End with "👉 Thuy Phan US".',
+      '⚠️ You MUST write out every single word. NEVER use placeholders like "[details follow...]" or bracketed summaries.',
+      'Structure as 5-6 clear, easy-to-understand paragraphs closely following the article content:',
+      'Para 1 — HOOK. Para 2 — WHAT HAPPENED. Para 3 — KEY DETAILS. Para 4 — INVESTIGATION & LEGAL. Para 5 — CONTEXT & IMPACT. Para 6 (optional).',
+      'After the paragraphs, add ONE short sentence/question encouraging viewers to discuss in comments.',
+      'End with: 👉 Thuy Phan US',
       '',
       '=== STYLE RULES ===',
       'Dramatic yet professional. Bypass FB filters: use "un-alived" not "killed", "firearm" not "gun",',
       '"substances" not "drugs", "mistreatment" not "abuse", "violent confrontation" not "assault", etc.',
       '',
       'Return ONLY a JSON object (no markdown fences, no preamble):',
-      '{"facebookText":"the rewritten post"}',
+      '{"facebookText":"the FULLY WRITTEN rewritten post, NO placeholders"}',
     ].join('\n');
 
     const raw = await geminiGenerate(prompt);

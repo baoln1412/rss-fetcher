@@ -552,7 +552,6 @@ export default function PostCard({ post, isNew, onToggleDone }: PostCardProps) {
             post.facebookText = newText;
           }}
         />
-        <CollapsibleSection label="Comment Bait" text={commentBait} />
         <CollapsibleSection label="NB2 Image Prompt" text={nb2Prompt} />
 
         {/* Done toggle button */}
